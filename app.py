@@ -5,33 +5,40 @@ import streamlit as st
 DB_FILE = "work_database.xlsx"
 USER_FILE = "users.xlsx"
 
-# 强制初始化数据库与用户表
-def init_db():
-    if not os.path.exists(DB_FILE):
-        columns = [
-            "助理姓名", "进群日期", "客户姓名", "签证国家", "人数", 
-            "对接销售", "方案出具日期", "实际完成日期", "进度", "备注", "是否代填"
-        ]
-        pd.DataFrame(columns=columns).to_excel(DB_FILE, index=False)
-        
-    if not os.path.exists(USER_FILE):
-        user_df = pd.DataFrame([
-            {"username": "admin", "password": "123456", "role": "admin", "real_name": "系统管理员"},
-            {"username": "mumu", "password": "123", "role": "assistant", "real_name": "木木"},
-            {"username": "nana", "password": "123", "role": "assistant", "real_name": "nana"}
-        ])
-        user_df.to_excel(USER_FILE, index=False)
+# 1. 强力初始化数据库与用户表（确保每次运行前必定存在）
+if not os.path.exists(DB_FILE):
+    columns = [
+        "助理姓名", "进群日期", "客户姓名", "签证国家", "人数", 
+        "对接销售", "方案出具日期", "实际完成日期", "进度", "备注", "是否代填"
+    ]
+    pd.DataFrame(columns=columns).to_excel(DB_FILE, index=False)
+    
+if not os.path.exists(USER_FILE):
+    user_df = pd.DataFrame([
+        {"username": "admin", "password": "123456", "role": "admin", "real_name": "系统管理员"},
+        {"username": "mumu", "password": "123", "role": "assistant", "real_name": "木木"},
+        {"username": "nana", "password": "123", "role": "assistant", "real_name": "nana"}
+    ])
+    user_df.to_excel(USER_FILE, index=False)
 
-init_db()
 st.set_page_config(page_title="工作登记系统", layout="wide")
 
-# 登录验证模块
+# 2. 登录验证模块
 def login():
     st.sidebar.title("🔐 系统登录")
     username = st.sidebar.text_input("用户名")
     password = st.sidebar.text_input("密码", type="password")
     
     if st.sidebar.button("登录"):
+        # 再次双重确保读取前文件一定存在
+        if not os.path.exists(USER_FILE):
+            user_df = pd.DataFrame([
+                {"username": "admin", "password": "123456", "role": "admin", "real_name": "系统管理员"},
+                {"username": "mumu", "password": "123", "role": "assistant", "real_name": "木木"},
+                {"username": "nana", "password": "123", "role": "assistant", "real_name": "nana"}
+            ])
+            user_df.to_excel(USER_FILE, index=False)
+            
         users_df = pd.read_excel(USER_FILE)
         user = users_df[(users_df['username'] == username) & (users_df['password'] == password)]
         if not user.empty:
@@ -48,7 +55,7 @@ if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
     st.info("👈 请在左侧输入账号密码登录系统。\n\n【测试账号】\n- 管理员：`admin` / `123456`\n- 助理：`mumu` / `123`")
     st.stop()
 
-# 登录后的主界面与权限控制
+# 3. 登录后的主界面与权限控制
 st.sidebar.success(f"欢迎您，{st.session_state['real_name']} ({'管理员' if st.session_state['role']=='admin' else '助理'})")
 if st.sidebar.button("退出登录"):
     st.session_state['logged_in'] = False

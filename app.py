@@ -5,9 +5,9 @@ import streamlit as st
 DB_FILE = "work_database.xlsx"
 SALARY_CONFIG_FILE = "salary_config.xlsx"
 
-# 1. 自动初始化数据库与薪资配置文件
+# 1. 自动初始化与强力修复配置文件
 def init_system():
-    # 工作数据库（包含财务收款及公证细分）
+    # 工作数据库
     if not os.path.exists(DB_FILE):
         columns = [
             "ID", "助理姓名", "进群日期", "客户姓名", "签证国家", "人数", 
@@ -17,7 +17,6 @@ def init_system():
         pd.DataFrame(columns=columns).to_excel(DB_FILE, index=False)
     else:
         df = pd.read_excel(DB_FILE)
-        # 兼容旧版本数据库字段
         if "ID" not in df.columns:
             df.insert(0, "ID", [str(i) for i in range(len(df))])
         for col in ["客户签证钱", "代买费", "飞机票钱", "陪签费", "公证翻译费", "公证备注"]:
@@ -25,15 +24,23 @@ def init_system():
                 df[col] = 0.0 if "钱" in col or "费" in col else ""
         df.to_excel(DB_FILE, index=False)
 
-    # 薪资与个人专属单价配置文件（兼顾助理与销售）
+    # 薪资配置文件检查与自动修复
+    default_staff_price_df = pd.DataFrame([
+        {"姓名": "木木", "身份": "助理", "分组": "一组", "美签单价": 120, "加签单价": 90, "澳大利亚签单价": 100, "申根签单价": 110, "特殊提成单价": 50, "公证提成": 20, "专属底薪": 3000},
+        {"姓名": "nana", "身份": "助理", "分组": "二组", "美签单价": 100, "加签单价": 80, "澳大利亚签单价": 90, "申根签单价": 100, "特殊提成单价": 40, "公证提成": 20, "专属底薪": 3000},
+        {"姓名": "张销售", "身份": "销售", "分组": "一组", "美签单价": 50, "加签单价": 40, "澳大利亚签单价": 45, "申根签单价": 50, "特殊提成单价": 20, "公证提成": 10, "专属底薪": 4000}
+    ])
+    
     if not os.path.exists(SALARY_CONFIG_FILE):
-        staff_price_df = pd.DataFrame([
-            {"姓名": "木木", "身份": "助理", "分组": "一组", "美签单价": 120, "加签单价": 90, "澳大利亚签单价": 100, "申根签单价": 110, "特殊提成单价": 50, "公证提成": 20, "专属底薪": 3000},
-            {"姓名": "nana", "身份": "助理", "分组": "二组", "美签单价": 100, "加签单价": 80, "澳大利亚签单价": 90, "申根签单价": 100, "特殊提成单价": 40, "公证提成": 20, "专属底薪": 3000},
-            {"姓名": "张销售", "身份": "销售", "分组": "一组", "美签单价": 50, "加签单价": 40, "澳大利亚签单价": 45, "申根签单价": 50, "特殊提成单价": 20, "公证提成": 10, "专属底薪": 4000}
-        ])
-        with pd.ExcelWriter(SALARY_CONFIG_FILE) as writer:
-            staff_price_df.to_excel(writer, sheet_name="人员配置与单价", index=False)
+        with pd.ExcelWriter(SALARY_CONFIG_FILE, engine='openpyxl') as writer:
+            default_staff_price_df.to_excel(writer, sheet_name="人员配置与单价", index=False)
+    else:
+        try:
+            pd.read_excel(SALARY_CONFIG_FILE, sheet_name="人员配置与单价")
+        except Exception:
+            # 如果表名不对或文件损坏，直接重写覆盖
+            with pd.ExcelWriter(SALARY_CONFIG_FILE, engine='openpyxl', mode='w') as writer:
+                default_staff_price_df.to_excel(writer, sheet_name="人员配置与单价", index=False)
 
 init_system()
 st.set_page_config(page_title="工作、财务与工资结算系统", layout="wide")
@@ -107,7 +114,6 @@ if menu == "📋 数据总览与财务查询":
         
     st.dataframe(display_df, use_container_width=True)
     
-    # 财务小计看板
     if not display_df.empty:
         st.markdown("### 💵 当前筛选结果财务汇总")
         c1, c2, c3, c4, c5 = st.columns(5)
@@ -295,7 +301,6 @@ elif menu == "💰 月底工资结算与单价设定" and st.session_state['role
         if df_data.empty:
             st.warning("当前数据库中暂无工作记录可供结算。")
         else:
-            # 建立人员单价快速查找字典
             price_map = {}
             for _, r in staff_config.iterrows():
                 name = r['姓名']
@@ -310,7 +315,6 @@ elif menu == "💰 月底工资结算与单价设定" and st.session_state['role
                     "底薪": r.get('专属底薪', 0)
                 }
             
-            # 统计助理提成
             st.markdown("#### 1. 助理提成与工资核算")
             assistant_summary = []
             for assistant_name in df_data['助理姓名'].dropna().unique():
@@ -333,7 +337,6 @@ elif menu == "💰 月底工资结算与单价设定" and st.session_state['role
                     
                     earned_money += unit_price * count
                     
-                    # 公证提成计算（按公证翻译费或者公证单数，这里按有公证费用的条目或固定提成折算）
                     notary_fee = float(row.get('公证翻译费', 0))
                     if notary_fee > 0:
                         earned_money += user_prices.get("公证提成", 20)
@@ -348,7 +351,6 @@ elif menu == "💰 月底工资结算与单价设定" and st.session_state['role
                 })
             st.dataframe(pd.DataFrame(assistant_summary), use_container_width=True)
 
-            # 统计销售提成
             st.markdown("#### 2. 销售提成与工资核算")
             sales_summary = []
             for sales_name in df_data['对接销售'].dropna().unique():

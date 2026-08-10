@@ -7,27 +7,32 @@ USER_FILE = "users.xlsx"
 
 # 1. 初始化数据库与用户表
 def init_db():
-    try:
-        if not os.path.exists(DB_FILE):
-            columns = [
-                "助理姓名", "进群日期", "客户姓名", "签证国家", "人数", 
-                "对接销售", "方案出具日期", "实际完成日期", "进度", "备注", "是否代填"
-            ]
-            pd.DataFrame(columns=columns).to_excel(DB_FILE, index=False)
-            
-        if not os.path.exists(USER_FILE):
-            user_df = pd.DataFrame([
-                {"username": "admin", "password": "123456", "role": "admin", "real_name": "系统管理员"},
-                {"username": "mumu", "password": "123", "role": "assistant", "real_name": "木木"},
-                {"username": "nana", "password": "123", "role": "assistant", "real_name": "nana"}
-            ])
-            user_df.to_excel(USER_FILE, index=False)
-    except Exception as e:
-        pass
+   import os
+import pandas as pd
+import streamlit as st
+
+DB_FILE = "work_database.xlsx"
+USER_FILE = "users.xlsx"
+
+# 强力初始化数据库与用户表（确保每次运行都必定存在）
+def init_db():
+    if not os.path.exists(DB_FILE):
+        columns = [
+            "助理姓名", "进群日期", "客户姓名", "签证国家", "人数", 
+            "对接销售", "方案出具日期", "实际完成日期", "进度", "备注", "是否代填"
+        ]
+        pd.DataFrame(columns=columns).to_excel(DB_FILE, index=False)
+        
+    if not os.path.exists(USER_FILE):
+        user_df = pd.DataFrame([
+            {"username": "admin", "password": "123456", "role": "admin", "real_name": "系统管理员"},
+            {"username": "mumu", "password": "123", "role": "assistant", "real_name": "木木"},
+            {"username": "nana", "password": "123", "role": "assistant", "real_name": "nana"}
+        ])
+        user_df.to_excel(USER_FILE, index=False)
 
 init_db()
 st.set_page_config(page_title="工作登记系统", layout="wide")
-
 # 2. 登录验证模块
 def login():
     st.sidebar.title("🔐 系统登录")

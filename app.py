@@ -3,49 +3,35 @@ import pandas as pd
 import streamlit as st
 
 DB_FILE = "work_database.xlsx"
-USER_FILE = "users.xlsx"
 
-# 1. 强力初始化数据库与用户表（确保每次运行前必定存在）
+# 1. 自动初始化数据库表
 if not os.path.exists(DB_FILE):
     columns = [
         "助理姓名", "进群日期", "客户姓名", "签证国家", "人数", 
         "对接销售", "方案出具日期", "实际完成日期", "进度", "备注", "是否代填"
     ]
     pd.DataFrame(columns=columns).to_excel(DB_FILE, index=False)
-    
-if not os.path.exists(USER_FILE):
-    user_df = pd.DataFrame([
-        {"username": "admin", "password": "123456", "role": "admin", "real_name": "系统管理员"},
-        {"username": "mumu", "password": "123", "role": "assistant", "real_name": "木木"},
-        {"username": "nana", "password": "123", "role": "assistant", "real_name": "nana"}
-    ])
-    user_df.to_excel(USER_FILE, index=False)
 
 st.set_page_config(page_title="工作登记系统", layout="wide")
 
-# 2. 登录验证模块
+# 2. 内置账号密码（硬编码，彻底抛弃 users.xlsx，杜绝文件报错）
+USERS_DB = {
+    "admin": {"password": "123456", "role": "admin", "real_name": "系统管理员"},
+    "mumu": {"password": "123", "role": "assistant", "real_name": "木木"},
+    "nana": {"password": "123", "role": "assistant", "real_name": "nana"}
+}
+
 def login():
     st.sidebar.title("🔐 系统登录")
     username = st.sidebar.text_input("用户名")
     password = st.sidebar.text_input("密码", type="password")
     
     if st.sidebar.button("登录"):
-        # 再次双重确保读取前文件一定存在
-        if not os.path.exists(USER_FILE):
-            user_df = pd.DataFrame([
-                {"username": "admin", "password": "123456", "role": "admin", "real_name": "系统管理员"},
-                {"username": "mumu", "password": "123", "role": "assistant", "real_name": "木木"},
-                {"username": "nana", "password": "123", "role": "assistant", "real_name": "nana"}
-            ])
-            user_df.to_excel(USER_FILE, index=False)
-            
-        users_df = pd.read_excel(USER_FILE)
-        user = users_df[(users_df['username'] == username) & (users_df['password'] == password)]
-        if not user.empty:
+        if username in USERS_DB and USERS_DB[username]["password"] == password:
             st.session_state['logged_in'] = True
             st.session_state['username'] = username
-            st.session_state['role'] = user.iloc[0]['role']
-            st.session_state['real_name'] = user.iloc[0]['real_name']
+            st.session_state['role'] = USERS_DB[username]['role']
+            st.session_state['real_name'] = USERS_DB[username]['real_name']
             st.rerun()
         else:
             st.sidebar.error("用户名或密码错误")
